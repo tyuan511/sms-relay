@@ -68,6 +68,7 @@ jobs:
   build-images:
     name: Build & push Docker images
     runs-on: ubuntu-latest
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -80,6 +81,24 @@ jobs:
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check Docker Hub credentials
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [[ -z "$DOCKERHUB_USERNAME" ]]; then
+            echo "::error::未找到 DOCKERHUB_USERNAME"
+            echo "请在 prod 环境的 Environment secrets 添加 DOCKERHUB_USERNAME"
+            echo "（Settings → Environments → prod → Environment secrets）"
+            exit 1
+          fi
+          if [[ -z "$DOCKERHUB_TOKEN" ]]; then
+            echo "::error::未找到 DOCKERHUB_TOKEN"
+            echo "请在 prod 环境的 Environment secrets 添加 DOCKERHUB_TOKEN"
+            echo "（Settings → Environments → prod → Environment secrets）"
+            exit 1
+          fi
 
       - uses: docker/setup-qemu-action@v3
 
