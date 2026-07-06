@@ -1,18 +1,23 @@
 package com.smsrelay.data
 
 import android.content.Context
+import android.provider.Settings
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.util.UUID
 
 class Prefs(context: Context) {
+    private val appContext = context.applicationContext
     private val prefs = EncryptedSharedPreferences.create(
-        context,
+        appContext,
         "sms_relay_secure",
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        MasterKey.Builder(appContext).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
     )
+
+    @Volatile
+    private var deviceClientIdCache: String? = null
 
     var serverUrl: String
         get() = prefs.getString(KEY_SERVER_URL, "") ?: ""
@@ -32,12 +37,33 @@ class Prefs(context: Context) {
 
     val deviceClientId: String
         get() {
-            val existing = prefs.getString(KEY_DEVICE_CLIENT_ID, "") ?: ""
-            if (existing.isNotBlank()) return existing
-            val generated = UUID.randomUUID().toString()
-            prefs.edit().putString(KEY_DEVICE_CLIENT_ID, generated).apply()
-            return generated
+            deviceClientIdCache?.let { return it }
+            return synchronized(deviceClientIdLock) {
+                deviceClientIdCache ?: loadOrCreateDeviceClientId().also { deviceClientIdCache = it }
+            }
         }
+
+    fun ensureDeviceClientId(): String = deviceClientId
+
+    private fun loadOrCreateDeviceClientId(): String {
+        val existing = prefs.getString(KEY_DEVICE_CLIENT_ID, "")?.trim().orEmpty()
+        if (existing.isNotBlank()) return existing
+
+        val stable = stableAndroidClientId()
+        prefs.edit().putString(KEY_DEVICE_CLIENT_ID, stable).apply()
+        return stable
+    }
+
+    private fun stableAndroidClientId(): String {
+        val androidId = Settings.Secure.getString(
+            appContext.contentResolver,
+            Settings.Secure.ANDROID_ID,
+        )?.trim().orEmpty()
+        if (androidId.isNotBlank() && androidId != EMULATOR_ANDROID_ID) {
+            return androidId
+        }
+        return UUID.randomUUID().toString()
+    }
 
     var lastUploadAt: Long
         get() = prefs.getLong(KEY_LAST_UPLOAD, 0L)
@@ -53,6 +79,8 @@ class Prefs(context: Context) {
     }
 
     companion object {
+        private val deviceClientIdLock = Any()
+        private const val EMULATOR_ANDROID_ID = "9774d56d682e549c"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_MASTER_PASSWORD = "master_password"
         private const val KEY_DEVICE_TOKEN = "device_token"

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"strings"
@@ -55,7 +56,7 @@ func (h *Handler) AuthDevice(c *fiber.Ctx) error {
 		h.upgradePasswordFingerprint(c.Context(), lookup.user.ID, req.MasterPassword)
 	}
 
-	deviceID, err := h.ensureDeviceRecord(c, lookup.user.ID, req.DeviceName, req.DeviceClientID)
+	deviceID, err := h.ensureDeviceRecord(c.Context(), lookup.user.ID, req.DeviceName, req.DeviceClientID)
 	if err != nil {
 		applog.ReqError("handler.auth", "device_auth", c, fiber.StatusInternalServerError, err, "step", "register_device")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"detail": "failed to register device"})
@@ -74,16 +75,16 @@ func (h *Handler) AuthDevice(c *fiber.Ctx) error {
 	})
 }
 
-func (h *Handler) ensureDeviceRecord(c *fiber.Ctx, userID, name, clientID string) (string, error) {
+func (h *Handler) ensureDeviceRecord(ctx context.Context, userID, name, clientID string) (string, error) {
 	clientIDParam := sql.NullString{String: clientID, Valid: clientID != ""}
 	if clientIDParam.Valid {
-		existing, err := h.queries.GetDeviceByUserAndClientID(c.Context(), db.GetDeviceByUserAndClientIDParams{
+		existing, err := h.queries.GetDeviceByUserAndClientID(ctx, db.GetDeviceByUserAndClientIDParams{
 			UserID:   userID,
 			ClientID: clientIDParam,
 		})
 		if err == nil {
 			now := time.Now().UTC()
-			_ = h.queries.UpdateDeviceLastSeen(c.Context(), db.UpdateDeviceLastSeenParams{
+			_ = h.queries.UpdateDeviceLastSeen(ctx, db.UpdateDeviceLastSeenParams{
 				LastSeenAt: sql.NullTime{Time: now, Valid: true},
 				ID:         existing.ID,
 			})
@@ -94,33 +95,20 @@ func (h *Handler) ensureDeviceRecord(c *fiber.Ctx, userID, name, clientID string
 		}
 	}
 
-	existing, err := h.queries.GetDeviceByUserAndName(c.Context(), db.GetDeviceByUserAndNameParams{
+	existing, err := h.queries.GetDeviceByUserAndName(ctx, db.GetDeviceByUserAndNameParams{
 		UserID: userID,
 		Name:   name,
 	})
 	if err == nil {
 		now := time.Now().UTC()
-		if clientIDParam.Valid && existing.ClientID.Valid && existing.ClientID.String != clientID {
-			id := uuid.New().String()
-			dev, err := h.queries.CreateDevice(c.Context(), db.CreateDeviceParams{
-				ID:       id,
-				UserID:   userID,
-				Name:     name,
-				ClientID: clientIDParam,
-			})
-			if err != nil {
-				return "", err
-			}
-			return dev.ID, nil
-		}
-		if clientIDParam.Valid && !existing.ClientID.Valid {
-			_ = h.queries.UpdateDeviceClientID(c.Context(), db.UpdateDeviceClientIDParams{
+		if clientIDParam.Valid && (!existing.ClientID.Valid || existing.ClientID.String != clientID) {
+			_ = h.queries.UpdateDeviceClientID(ctx, db.UpdateDeviceClientIDParams{
 				ClientID: clientIDParam,
 				ID:       existing.ID,
 				UserID:   userID,
 			})
 		}
-		_ = h.queries.UpdateDeviceLastSeen(c.Context(), db.UpdateDeviceLastSeenParams{
+		_ = h.queries.UpdateDeviceLastSeen(ctx, db.UpdateDeviceLastSeenParams{
 			LastSeenAt: sql.NullTime{Time: now, Valid: true},
 			ID:         existing.ID,
 		})
@@ -130,7 +118,7 @@ func (h *Handler) ensureDeviceRecord(c *fiber.Ctx, userID, name, clientID string
 		return "", err
 	}
 	id := uuid.New().String()
-	dev, err := h.queries.CreateDevice(c.Context(), db.CreateDeviceParams{
+	dev, err := h.queries.CreateDevice(ctx, db.CreateDeviceParams{
 		ID:       id,
 		UserID:   userID,
 		Name:     name,

@@ -11,6 +11,7 @@ class SmsRelayApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        Prefs(this).ensureDeviceClientId()
         SyncScheduler.schedulePeriodicSync(this)
         if (Prefs(this).isConfigured()) {
             SyncScheduler.scheduleHeartbeat(this)
