@@ -1,0 +1,24 @@
+{
+  "name": "sms-relay",
+  "private": true,
+  "packageManager": "pnpm@11.5.2",
+  "scripts": {
+    "dev:server": "go run ./server/cmd/server",
+    "dev:web": "pnpm --filter web dev",
+    "dev": "pnpm run dev:server & pnpm run dev:web",
+    "build:web": "pnpm --filter web build",
+    "build:app": "./scripts/build-app.sh",
+    "lint:web": "pnpm --filter web lint",
+    "build:docker": "docker compose build",
+    "build:docker:web": "docker build -t sms-relay-web ./web",
+    "build:docker:server": "docker build -t sms-relay-server ./server",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f --tail=100",
+    "deploy": "./scripts/deploy.sh",
+    "deploy:stop": "./scripts/deploy.sh stop",
+    "deploy:restart": "./scripts/deploy.sh restart",
+    "deploy:prod": "./deploy.sh",
+    "release": "./scripts/release.sh"
+  }
+}

@@ -1,0 +1,38 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      PORT: "8080"
+      DATABASE_PATH: /data/smsrelay.db
+      MIGRATIONS_DIR: /app/db/migrations
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:?PASSWORD_PEPPER is required}
+      DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY:?DATABASE_ENCRYPTION_KEY is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    volumes:
+      - smsrelay_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  smsrelay_data:

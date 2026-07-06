@@ -1,0 +1,34 @@
+# Go
+server/data/
+data/
+server/smsrelay
+
+# Docker
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+
+# Web / Node
+node_modules/
+web/dist/

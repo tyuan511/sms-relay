@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SMS Relay</string>
+    <string name="server_url">服务器地址</string>
+    <string name="master_password">主密码</string>
+    <string name="save">保存</string>
+    <string name="save_and_start">保存并开始监听</string>
+    <string name="test_connection">测试连接</string>
+    <string name="testing_connection">正在测试连接…</string>
+    <string name="test_success">连接测试成功，Telegram 已收到测试消息</string>
+    <string name="service_running">正在监听短信</string>
+    <string name="service_uploading">正在转发短信</string>
+    <string name="service_channel">短信监听</string>
+    <string name="server_url_hint">https://sms.tangge.top（不要加 /api/v1）</string>
+    <string name="password_hint">32 位主密码</string>
+    <string name="status_connected">已连接 · 正在监听</string>
+    <string name="status_disconnected">未配置</string>
+    <string name="permission_required">需要短信权限才能工作</string>
+    <string name="grant_permission">授予短信权限</string>
+    <string name="config_saved">配置已保存</string>
+    <string name="login_failed">登录失败，请检查地址和密码</string>
+    <string name="last_upload">上次上报：%s</string>
+    <string name="never">从未</string>
+    <string name="pending_queue">待上传：%d 条</string>
+    <string name="sync_now">立即同步</string>
+    <string name="setup_subtitle">短信转发客户端</string>
+    <string name="setup_heading">初始化设置</string>
+    <string name="setup_description">填写 Web 控制台注册时的服务器地址和主密码，保存后即可开始监听并转发短信。</string>
+    <string name="messages_title">短信</string>
+    <string name="settings">设置</string>
+    <string name="settings_dialog_title">连接设置</string>
+    <string name="status_forwarded">已转发</string>
+    <string name="status_pending">待转发</string>
+    <string name="status_failed">转发失败</string>
+    <string name="empty_messages_title">暂无短信</string>
+    <string name="empty_messages_description">收到短信后会显示在这里，并展示转发状态。</string>
+    <string name="battery_whitelist_action">关闭电池优化（建议）</string>
+    <string name="battery_whitelisted">电池优化已关闭 ✓</string>
+</resources>

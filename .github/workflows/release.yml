@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  DOCKER_USER: tangge
+  SERVER_IMAGE: tangge/sms-relay-server
+  WEB_IMAGE: tangge/sms-relay-web
+
+jobs:
+  build-apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse version
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag: ${GITHUB_REF_NAME} (expected vX.Y.Z)" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Prepare debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkey -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Rename APK
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "sms-relay-${{ steps.version.outputs.version }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: sms-relay-*.apk
+          retention-days: 7
+
+  build-images:
+    name: Build & push Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse version
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag: ${GITHUB_REF_NAME} (expected vX.Y.Z)" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.SERVER_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.SERVER_IMAGE }}:latest
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: web
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.WEB_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.WEB_IMAGE }}:latest
+
+  github-release:
+    name: Publish GitHub Release
+    needs: [build-apk, build-images]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: dist/*.apk
+          body: |
+            ## Docker 镜像
+
+            ```bash
+            docker pull ${{ env.SERVER_IMAGE }}:${{ steps.version.outputs.version }}
+            docker pull ${{ env.WEB_IMAGE }}:${{ steps.version.outputs.version }}
+            ```
+
+            生产部署：
+
+            ```bash
+            ./deploy.sh ${{ steps.version.outputs.version }}
+            ```
+
+            ## Android APK
+
+            下载下方 `sms-relay-${{ steps.version.outputs.version }}.apk` 侧载安装。
+
+            | 设置项 | 填写内容 |
+            |--------|----------|
+            | 服务器地址 | 你的部署地址（不含 `/api/v1`） |
+            | 主密码 | Web 控制台注册时保存的 32 位密码 |
