@@ -1,6 +1,6 @@
 # Go
 server/data/
-data/
+/data/
 server/smsrelay
 
 # Docker
